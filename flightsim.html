@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+
+    <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+
+    <style>
+      body {
+        display: flex;
+        flex-direction: row-reverse;
+        justify-content: center;
+        padding-top: 40px;
+      }
+
+      canvas {
+        margin-right: 50px;
+        border:1px solid #000000;
+      }
+
+      h2 {
+        font-size: 26px;
+        font-family: 'Lato', sans-serif;
+        text-align: center;
+      }
+    </style>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">
+      attribute vec4 aPosition;
+      attribute vec4 aColor;
+      uniform float u_fudgeFactor;
+
+      varying vec4 vColor;
+      varying vec3 vPosition;
+
+      uniform vec3 theta;
+      uniform vec3 shift;
+
+      void main(){
+        gl_PointSize = 55.0;
+
+        vec3 angles = radians(theta);
+        vec3 c = cos(angles);
+        vec3 s = sin(angles);
+
+        // Column-major matrices, taken from class
+        mat4 rx = mat4(
+          1.0,  0.0,  0.0, 0.0,
+          0.0,  c.x,  s.x, 0.0,
+          0.0, -s.x,  c.x, 0.0,
+          0.0,  0.0,  0.0, 1.0
+        );
+
+        mat4 ry = mat4(
+          c.y, 0.0, -s.y, 0.0,
+          0.0, 1.0,  0.0, 0.0,
+          s.y, 0.0,  c.y, 0.0,
+          0.0, 0.0,  0.0, 1.0
+        );
+
+        mat4 rz = mat4(
+          c.z, s.z, 0.0, 0.0,
+          -s.z,  c.z, 0.0, 0.0,
+          0.0,  0.0, 1.0, 0.0,
+          0.0,  0.0, 0.0, 1.0
+        );
+
+        // Column-major shift matrices
+
+        mat4 t = mat4 (
+          1.0,  0.0,  0.0, 0.0,
+          0.0,  1.0,  0.0, 0.0,
+          0.0,  0.0,  1.0, 0.0,
+          -shift.xyz,       1.0
+        );
+
+        gl_Position = rx * ry * rz * t * aPosition;
+        float zToDivideBy = 1.0 + (gl_Position.z) * u_fudgeFactor;
+        gl_Position = vec4(gl_Position.xyz, zToDivideBy);
+        vPosition = gl_Position.xyz;
+
+        vColor = aColor;
+
+      }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">
+      precision mediump float;
+
+      varying vec4 vColor;
+      varying vec3 vPosition;
+
+      uniform float fogDensity;
+      uniform vec4 fogColor;
+
+      void main() {
+
+        #define LOG2 1.442695
+
+        float fogDistance = vPosition.x*vPosition.x + vPosition.y*vPosition.y + vPosition.z*vPosition.z;
+        float fogAmount = 1. - exp2(-fogDensity*fogDensity * fogDistance * LOG2);
+        fogAmount = clamp(fogAmount, 0.0, 1.0);
+
+        gl_FragColor = vColor + (fogColor - vColor) * 1.0 * fogAmount;
+      }
+
+
+    </script>
+
+    <script type="text/javascript" src="Common/webgl-utils.js"></script>
+    <script type="text/javascript" src="Common/initShaders.js"></script>
+    <script type="text/javascript" src="Common/MV.js"></script>
+    <script type="text/javascript" src="flightsim.js"></script>
+    <script type="text/javascript" src="perlin.js"></script>
+    <style>
+      .overlay {
+        position: absolute;
+        font-family: 'Lato', sans-serif;
+        font-size: 14px;
+      }
+
+      ul {
+        padding-left: 0px;
+        margin-left: 20px;
+        margin-top: 35px;
+        border-radius: 5px;
+        padding: 4px;
+        width: 80px;
+        background-color: #b3b3b3c0;
+      }
+
+      li {
+        list-style-type: none;
+      }
+    </style>
+
+  </head>
+
+  <body>
+      <div class="slidecontainer">
+      "Fog Density"
+      <input type="range" min="0" max="1" value="0.07" step="0.05" class="slider" id="fogDensity">
+      </div>
+    <div class="slidecontainer">
+    "Render Distance"
+    <input type="range" min="15" max="100" value="100" class="slider" id="viewDistance">
+    </div>
+    <div class="slidecontainer">
+    Field of View
+    <input type="range" min="50" max="100" value="50" class="slider" id="fudgeFactor">
+    </div>
+    <h2>Try pressing your WASD and Arrow keys!</h2>
+    <div class="container">
+      <div class="overlay">
+        <ul>
+          <li id="seed">Seed: </li>
+          <li id="speed">Speed: </li>
+          <li id="x">X: </li>
+          <li id="y">Y: </li>
+          <li id="z">Z: </li>
+          <li id="pitch">Pitch: </li>
+          <li id="yaw">Yaw: </li>
+          <li id="roll">Roll: </li>
+        </ul>
+      </div>
+      
+      <select id="Selection Menu" size="1">
+        <option id="0">Toggle Smooth Shading</option>
+        <option id="1">Toggle Flat Shading</option>
+        <option id="2">Toggle Wireframe</option>
+      </select>
+
+      <canvas id="gl-canvas" width="768" height="675">
+        Oops ... your browser doesn't support the HTML5 canvas element
+      </canvas>
+    </div>
+  </body>
+</html>
